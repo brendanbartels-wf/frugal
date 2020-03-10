@@ -1490,15 +1490,15 @@ func (g *Generator) GenerateConstants(file *os.File, name string) error {
 // GeneratePublisher generates the publisher for the given scope.
 func (g *Generator) GeneratePublisher(file *os.File, scope *parser.Scope) error {
 	publishers := ""
-	if scope.Comment != nil {
-		publishers += g.GenerateInlineComment(scope.Comment, "/")
-	}
 	publisherClassname :=  fmt.Sprintf("%sPublisher", strings.Title(scope.Name))
 
 	// Generate publisher factory
-	publishers += fmt.Sprintf("%sFactory(frugal.FScopeProvider provider, [List<frugal.Middleware> middleware]) => \n", publisherClassname)
-	publishers += tab + fmt.Sprintf("%s(provider, middleware);\n\n", publisherClassname)
+	publishers += fmt.Sprintf("%sFactory(frugal.FScopeProvider provider, [List<frugal.Middleware> middleware]) =>\n", publisherClassname)
+	publishers += tabtab + fmt.Sprintf("%s(provider, middleware);\n\n", publisherClassname)
 
+	if scope.Comment != nil {
+		publishers += g.GenerateInlineComment(scope.Comment, "/")
+	}
 	// Generate publisher class
 	publishers += fmt.Sprintf("class %s {\n", publisherClassname)
 	publishers += tab + "frugal.FPublisherTransport transport;\n"
@@ -1596,16 +1596,15 @@ func generatePrefixStringTemplate(scope *parser.Scope) string {
 // GenerateSubscriber generates the subscriber for the given scope.
 func (g *Generator) GenerateSubscriber(file *os.File, scope *parser.Scope) error {
 	subscribers := ""
+	subscriberClassname :=  fmt.Sprintf("%sSubscriber", strings.Title(scope.Name))
+
+	// Generate subscriber factory
+	subscribers += fmt.Sprintf("%sFactory(frugal.FScopeProvider provider, [List<frugal.Middleware> middleware]) =>\n", subscriberClassname)
+	subscribers += tabtab + fmt.Sprintf("%s(provider, middleware);\n\n", subscriberClassname)
 
 	if scope.Comment != nil {
 		subscribers += g.GenerateInlineComment(scope.Comment, "/")
 	}
-	subscriberClassname :=  fmt.Sprintf("%sSubscriber", strings.Title(scope.Name))
-
-	// Generate subscriber factory
-	subscribers += fmt.Sprintf("%sFactory(frugal.FScopeProvider provider, [List<frugal.Middleware> middleware]) => \n", subscriberClassname)
-	subscribers += tab + fmt.Sprintf("%s(provider, middleware);\n\n", subscriberClassname)
-
 	// Generate subscriber class
 	subscribers += fmt.Sprintf("class %s {\n", subscriberClassname)
 	subscribers += tab + "final frugal.FScopeProvider provider;\n"
@@ -1742,12 +1741,14 @@ func (g *Generator) generateClient(service *parser.Service) string {
 	servTitle := strings.Title(service.Name)
 	clientClassname := fmt.Sprintf("F%sClient", servTitle)
 	contents := ""
+
+	// Generate client factory
+	contents += fmt.Sprintf("%sFactory(frugal.FServiceProvider provider, [List<frugal.Middleware> middleware]) =>\n", clientClassname)
+	contents += tabtab + fmt.Sprintf("%s(provider, middleware);\n\n", clientClassname)
+
 	if service.Comment != nil {
 		contents += g.GenerateInlineComment(service.Comment, "/")
 	}
-	// Generate client factory
-	contents += fmt.Sprintf("%sFactory(frugal.FServiceProvider provider, [List<frugal.Middleware> middleware]) => \n", clientClassname)
-	contents += tab + fmt.Sprintf("%s(provider, middleware);\n\n", clientClassname)
 
 	// Generate client class
 	if service.Extends != "" {

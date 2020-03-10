@@ -16,12 +16,12 @@ import 'package:v1_music/v1_music.dart' as t_v1_music;
 
 const String delimiter = '.';
 
-/// Scopes are a Frugal extension to the IDL for declaring PubSub
-/// semantics. Subscribers to this scope will be notified if they win a contest.
-/// Scopes must have a prefix.
 AlbumWinnersPublisherFactory(frugal.FScopeProvider provider, [List<frugal.Middleware> middleware]) => 
   AlbumWinnersPublisher(provider, middleware);
 
+/// Scopes are a Frugal extension to the IDL for declaring PubSub
+/// semantics. Subscribers to this scope will be notified if they win a contest.
+/// Scopes must have a prefix.
 class AlbumWinnersPublisher {
   frugal.FPublisherTransport transport;
   frugal.FProtocolFactory protocolFactory;
@@ -113,12 +113,12 @@ class AlbumWinnersPublisher {
 }
 
 
-/// Scopes are a Frugal extension to the IDL for declaring PubSub
-/// semantics. Subscribers to this scope will be notified if they win a contest.
-/// Scopes must have a prefix.
 AlbumWinnersSubscriberFactory(frugal.FScopeProvider provider, [List<frugal.Middleware> middleware]) => 
   AlbumWinnersSubscriber(provider, middleware);
 
+/// Scopes are a Frugal extension to the IDL for declaring PubSub
+/// semantics. Subscribers to this scope will be notified if they win a contest.
+/// Scopes must have a prefix.
 class AlbumWinnersSubscriber {
   final frugal.FScopeProvider provider;
   final List<frugal.Middleware> _middleware;

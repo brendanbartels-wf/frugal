@@ -20,6 +20,9 @@ abstract class FBaseFoo {
   Future basePing(frugal.FContext ctx);
 }
 
+FBaseFooClientFactory(frugal.FServiceProvider provider, [List<frugal.Middleware> middleware]) =>
+    FBaseFooClient(provider, middleware);
+
 class FBaseFooClient implements FBaseFoo {
   static final logging.Logger _frugalLog = logging.Logger('BaseFoo');
   Map<String, frugal.FMethod> _methods;

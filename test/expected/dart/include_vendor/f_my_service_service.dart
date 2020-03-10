@@ -22,6 +22,9 @@ abstract class FMyService extends t_vendor_namespace.FVendoredBase {
   Future<t_vendor_namespace.Item> getItem(frugal.FContext ctx);
 }
 
+FMyServiceClientFactory(frugal.FServiceProvider provider, [List<frugal.Middleware> middleware]) =>
+    FMyServiceClient(provider, middleware);
+
 class FMyServiceClient extends t_vendor_namespace.FVendoredBaseClient implements FMyService {
   static final logging.Logger _frugalLog = logging.Logger('MyService');
   Map<String, frugal.FMethod> _methods;

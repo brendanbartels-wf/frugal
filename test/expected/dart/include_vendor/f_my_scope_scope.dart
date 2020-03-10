@@ -17,6 +17,9 @@ import 'package:include_vendor/include_vendor.dart' as t_include_vendor;
 
 const String delimiter = '.';
 
+MyScopePublisherFactory(frugal.FScopeProvider provider, [List<frugal.Middleware> middleware]) =>
+    MyScopePublisher(provider, middleware);
+
 class MyScopePublisher {
   frugal.FPublisherTransport transport;
   frugal.FProtocolFactory protocolFactory;
@@ -59,6 +62,9 @@ class MyScopePublisher {
   }
 }
 
+
+MyScopeSubscriberFactory(frugal.FScopeProvider provider, [List<frugal.Middleware> middleware]) =>
+    MyScopeSubscriber(provider, middleware);
 
 class MyScopeSubscriber {
   final frugal.FScopeProvider provider;
