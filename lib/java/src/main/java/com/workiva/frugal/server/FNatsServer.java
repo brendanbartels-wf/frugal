@@ -364,51 +364,74 @@ public class FNatsServer implements FServer {
             Map<Object, Object> ephemeralProperties = new HashMap<>();
             this.eventHandler.onRequestReceived(ephemeralProperties);
             executorService.execute(
-                    new Request(message.getData(), message.getReplyTo(), inputProtoFactory,
-                            outputProtoFactory, processor, conn, eventHandler, ephemeralProperties));
+                    new Request(message.getData(), message.getReplyTo(), ephemeralProperties));
         };
     }
 
     /**
      * Runnable which encapsulates a request received by the server.
      */
-    static class Request implements Runnable {
+    public class Request implements Runnable {
 
         final byte[] frameBytes;
         final String reply;
-        final FProtocolFactory inputProtoFactory;
-        final FProtocolFactory outputProtoFactory;
-        final FProcessor processor;
-        final Connection conn;
-        final FServerEventHandler eventHandler;
         final Map<Object, Object> ephemeralProperties;
 
-        Request(byte[] frameBytes, String reply,
-                FProtocolFactory inputProtoFactory, FProtocolFactory outputProtoFactory,
-                FProcessor processor, Connection conn, FServerEventHandler eventHandler,
-                Map<Object, Object> ephemeralProperties) {
+        public Request(byte[] frameBytes, String reply, Map<Object, Object> ephemeralProperties) {
             this.frameBytes = frameBytes;
             this.reply = reply;
-            this.inputProtoFactory = inputProtoFactory;
-            this.outputProtoFactory = outputProtoFactory;
-            this.processor = processor;
-            this.conn = conn;
-            this.eventHandler = eventHandler;
             this.ephemeralProperties = ephemeralProperties;
+        }
+
+        /**
+         * The frame bytes of the request.
+         *
+         * @return the frame bytes
+         */
+        public byte[] getFrameBytes() {
+            return frameBytes;
+        }
+
+        /**
+         * The NATS subject for the response.
+         *
+         * @return the reply subject
+         */
+        public String getReply() {
+            return reply;
+        }
+
+        /**
+         * The metadata of the request.
+         *
+         * @return the ephemeralProperties
+         */
+        public Map<Object, Object> getEphemeralProperties() {
+            return ephemeralProperties;
         }
 
         @Override
         public void run() {
-            eventHandler.onRequestStarted(ephemeralProperties);
+            processRequest(this);
+        }
+    }
+
+    /**
+     * Processes a request and publishes a NATS message for the response.
+     *
+     * @param request the request
+     */
+    private void processRequest(Request request) {
+            eventHandler.onRequestStarted(request.ephemeralProperties);
 
             try {
                 // Read and process frame (exclude first 4 bytes which represent frame size).
-                TTransport input = new TMemoryInputTransport(frameBytes, 4, frameBytes.length);
+                TTransport input = new TMemoryInputTransport(request.frameBytes, 4, request.frameBytes.length);
                 TMemoryOutputBuffer output = new TMemoryOutputBuffer(NATS_MAX_MESSAGE_SIZE);
 
                 try {
                     FProtocol inputProto = inputProtoFactory.getProtocol(input);
-                    inputProto.setEphemeralProperties(ephemeralProperties);
+                    inputProto.setEphemeralProperties(request.ephemeralProperties);
                     FProtocol outputProto = outputProtoFactory.getProtocol(output);
                     processor.process(inputProto, outputProto);
                 } catch (TException e) {
@@ -416,7 +439,7 @@ public class FNatsServer implements FServer {
                     return;
                 } catch (RuntimeException e) {
                     try {
-                        conn.publish(reply, output.getWriteBytes());
+                        conn.publish(request.reply, output.getWriteBytes());
                         conn.flush(Duration.ofSeconds(60));
                     } catch (Exception ignored) {
                     }
@@ -428,11 +451,10 @@ public class FNatsServer implements FServer {
                 }
 
                 // Send response.
-                conn.publish(reply, output.getWriteBytes());
+                conn.publish(request.reply, output.getWriteBytes());
             } finally {
-                eventHandler.onRequestEnded(ephemeralProperties);
+                eventHandler.onRequestEnded(request.ephemeralProperties);
             }
-        }
 
     }
 

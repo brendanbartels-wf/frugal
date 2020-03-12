@@ -216,10 +216,6 @@ public class FNatsServerTest {
         FNatsServer.Request request = (FNatsServer.Request) captor.getValue();
         assertArrayEquals(data, request.frameBytes);
         assertEquals(reply, request.reply);
-        assertEquals(mockProtocolFactory, request.inputProtoFactory);
-        assertEquals(mockProtocolFactory, request.outputProtoFactory);
-        assertEquals(mockProcessor, request.processor);
-        assertEquals(mockConn, request.conn);
     }
 
     @Test
@@ -246,9 +242,9 @@ public class FNatsServerTest {
         long highWatermark = 5000;
         MockFProcessor processor = new MockFProcessor(data, "blah".getBytes());
         mockProtocolFactory = new FProtocolFactory(new TJSONProtocol.Factory());
-        FNatsServer.Request request = new FNatsServer.Request(data, reply,
-                mockProtocolFactory, mockProtocolFactory, processor, mockConn,
-                new FDefaultNatsServerEventHandler(5000), new HashMap<>());
+        server = new FNatsServer.Builder(mockConn, processor, mockProtocolFactory, new String[]{subject})
+                .withQueueGroup(queue).build();
+        FNatsServer.Request request = server.new Request(data, reply, new HashMap<>());
 
         request.run();
 
@@ -264,9 +260,9 @@ public class FNatsServerTest {
         long highWatermark = 5000;
         MockFProcessor processor = new MockFProcessor(new RuntimeException());
         mockProtocolFactory = new FProtocolFactory(new TJSONProtocol.Factory());
-        FNatsServer.Request request = new FNatsServer.Request(data, reply,
-                mockProtocolFactory, mockProtocolFactory, processor, mockConn,
-                new FDefaultNatsServerEventHandler(5000), new HashMap<>());
+        server = new FNatsServer.Builder(mockConn, processor, mockProtocolFactory, new String[]{subject})
+                .withQueueGroup(queue).build();
+        FNatsServer.Request request = server.new Request(data, reply, new HashMap<>());
 
         request.run();
 
@@ -282,9 +278,9 @@ public class FNatsServerTest {
         long highWatermark = 5000;
         MockFProcessor processor = new MockFProcessor(data, null);
         mockProtocolFactory = new FProtocolFactory(new TJSONProtocol.Factory());
-        FNatsServer.Request request = new FNatsServer.Request(data, reply,
-                mockProtocolFactory, mockProtocolFactory, processor, mockConn,
-                new FDefaultNatsServerEventHandler(5000), new HashMap<>());
+        server = new FNatsServer.Builder(mockConn, processor, mockProtocolFactory, new String[]{subject})
+                .withQueueGroup(queue).build();
+        FNatsServer.Request request = server.new Request(data, reply, new HashMap<>());
 
         request.run();
 
