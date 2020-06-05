@@ -36,6 +36,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static com.workiva.frugal.transport.FNatsTransport.NATS_MAX_MESSAGE_SIZE;
 
@@ -58,6 +59,7 @@ public class FNatsServer implements FServer {
     private final String queue;
     private final long stopTimeoutNS;
     private final FServerEventHandler eventHandler;
+    private final RequestHandler requestHandler;
 
     private final CountDownLatch shutdownSignal = new CountDownLatch(1);
     /**
@@ -95,7 +97,8 @@ public class FNatsServer implements FServer {
      */
     private FNatsServer(Connection conn, FProcessor processor, FProtocolFactory protoFactory,
                         String[] subjects, String queue, ExecutorService executorService,
-                        long stopTimeoutNS, FServerEventHandler eventHandler) {
+                        long stopTimeoutNS, FServerEventHandler eventHandler,
+                        RequestHandler requestHandler) {
         this.conn = conn;
         this.processor = processor;
         this.inputProtoFactory = protoFactory;
@@ -105,6 +108,7 @@ public class FNatsServer implements FServer {
         this.executorService = executorService;
         this.stopTimeoutNS = stopTimeoutNS;
         this.eventHandler = eventHandler;
+        this.requestHandler = requestHandler;
     }
 
     /**
@@ -124,6 +128,7 @@ public class FNatsServer implements FServer {
         private ExecutorService executorService;
         private long stopTimeoutNS = DEFAULT_STOP_TIMEOUT_NS;
         private FServerEventHandler eventHandler;
+        private RequestHandler requestHandler;
 
         /**
          * Creates a new Builder which creates FStatelessNatsServers that subscribe to the given NATS subjects.
@@ -232,6 +237,11 @@ public class FNatsServer implements FServer {
             return this;
         }
 
+        public Builder withRequestHandler(RequestHandler requestHandler) {
+            this.requestHandler = requestHandler;
+            return this;
+        }
+
         /**
          * Creates a new configured FNatsServer.
          *
@@ -249,8 +259,12 @@ public class FNatsServer implements FServer {
                 eventHandler = new FDefaultNatsServerEventHandler(highWatermark);
             }
 
+            if (requestHandler == null) {
+                requestHandler = (request, executeRequest) -> executeRequest.accept(request);
+            }
+
             return new FNatsServer(conn, processor, protoFactory, subjects, queue,
-                executorService, stopTimeoutNS, eventHandler);
+                executorService, stopTimeoutNS, eventHandler, requestHandler);
         }
 
     }
@@ -355,6 +369,17 @@ public class FNatsServer implements FServer {
      */
     protected MessageHandler newRequestHandler() {
         return message -> {
+            Request request = new Request(message.getData(), message.getReplyTo());
+            requestHandler.handle(request, this::executeRequest);
+        };
+    }
+
+    /**
+     * Execute the request.
+     *
+     * @param message the request
+     */
+    private void executeRequest(Request message) {
             String reply = message.getReplyTo();
             if (reply == null || reply.isEmpty()) {
                 LOGGER.warn("Discarding invalid NATS request (no reply)");
@@ -364,15 +389,66 @@ public class FNatsServer implements FServer {
             Map<Object, Object> ephemeralProperties = new HashMap<>();
             this.eventHandler.onRequestReceived(ephemeralProperties);
             executorService.execute(
-                    new Request(message.getData(), message.getReplyTo(), inputProtoFactory,
+                    new RequestExecution(message.getData(), message.getReplyTo(), inputProtoFactory,
                             outputProtoFactory, processor, conn, eventHandler, ephemeralProperties));
-        };
+    }
+
+    /**
+     * A handler for incoming NATS requests.
+     */
+    public interface RequestHandler {
+
+        /**
+         * Handle the given message. Implementations must call executeRequest
+         * lambda to process the request.
+         *
+         * @param request the NATS request
+         * @param executeRequest executes the request
+         */
+        void handle(Request request, Consumer<Request> executeRequest);
+    }
+
+    /**
+     * A wrapper around NATS Message data.
+     */
+    public static class Request {
+        private byte[] data;
+        private String replyTo;
+
+        /**
+         * Creates a Request.
+         *
+         * @param data the message payload
+         * @param replyTo the replyTo subject
+         */
+        public Request(byte[] data, String replyTo) {
+            this.data = data;
+            this.replyTo = replyTo;
+        }
+
+        /**
+         * The payload of the request.
+         *
+         * @return the data
+         */
+        public byte[] getData() {
+            return data;
+        }
+
+        /**
+         * The NATS reply subject for the response.
+         *
+         * @return The replyTo subject
+         */
+        public String getReplyTo() {
+            return replyTo;
+        }
     }
 
     /**
      * Runnable which encapsulates a request received by the server.
      */
-    static class Request implements Runnable {
+    static class RequestExecution implements Runnable {
 
         final byte[] frameBytes;
         final String reply;
@@ -383,7 +459,7 @@ public class FNatsServer implements FServer {
         final FServerEventHandler eventHandler;
         final Map<Object, Object> ephemeralProperties;
 
-        Request(byte[] frameBytes, String reply,
+        RequestExecution(byte[] frameBytes, String reply,
                 FProtocolFactory inputProtoFactory, FProtocolFactory outputProtoFactory,
                 FProcessor processor, Connection conn, FServerEventHandler eventHandler,
                 Map<Object, Object> ephemeralProperties) {
