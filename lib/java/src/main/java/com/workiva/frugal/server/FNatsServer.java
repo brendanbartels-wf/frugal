@@ -85,26 +85,30 @@ public class FNatsServer implements FServer {
      * too long based on the high watermark, the server will log that it is backed up. Clients must connect with the
      * FNatsTransport.
      *
-     * @param conn            NATS connection
-     * @param processor       FProcessor used to process requests
-     * @param protoFactory    FProtocolFactory used for input and output protocols
-     * @param subjects        NATS subjects to receive requests on
-     * @param queue           NATS queue group to receive requests on
-     * @param stopTimeoutNS Nanoseconds to await current requests to finish when stopping server
-     * @param executorService Custom executor service for processing messages
+     * @param b FNatsServer builder
      */
-    private FNatsServer(Connection conn, FProcessor processor, FProtocolFactory protoFactory,
-                        String[] subjects, String queue, ExecutorService executorService,
-                        long stopTimeoutNS, FServerEventHandler eventHandler) {
-        this.conn = conn;
-        this.processor = processor;
-        this.inputProtoFactory = protoFactory;
-        this.outputProtoFactory = protoFactory;
-        this.subjects = subjects;
-        this.queue = queue;
-        this.executorService = executorService;
-        this.stopTimeoutNS = stopTimeoutNS;
-        this.eventHandler = eventHandler;
+    protected FNatsServer(Builder b) {
+
+        if (b.executorService == null) {
+            b.executorService = new ThreadPoolExecutor(
+                    b.workerCount, b.workerCount, 0, TimeUnit.MILLISECONDS,
+                    new ArrayBlockingQueue<>(b.queueLength),
+                    new BlockingRejectedExecutionHandler());
+        }
+
+        if (b.eventHandler == null) {
+            b.eventHandler = new FDefaultNatsServerEventHandler(b.highWatermark);
+        }
+
+        this.conn = b.conn;
+        this.processor = b.processor;
+        this.inputProtoFactory = b.protoFactory;
+        this.outputProtoFactory = b.protoFactory;
+        this.subjects = b.subjects;
+        this.queue = b.queue;
+        this.executorService = b.executorService;
+        this.stopTimeoutNS = b.stopTimeoutNS;
+        this.eventHandler = b.eventHandler;
     }
 
     /**
@@ -238,19 +242,7 @@ public class FNatsServer implements FServer {
          * @return FNatsServer
          */
         public FNatsServer build() {
-            if (executorService == null) {
-                this.executorService = new ThreadPoolExecutor(
-                        workerCount, workerCount, 0, TimeUnit.MILLISECONDS,
-                        new ArrayBlockingQueue<>(queueLength),
-                        new BlockingRejectedExecutionHandler());
-            }
-
-            if (eventHandler == null) {
-                eventHandler = new FDefaultNatsServerEventHandler(highWatermark);
-            }
-
-            return new FNatsServer(conn, processor, protoFactory, subjects, queue,
-                executorService, stopTimeoutNS, eventHandler);
+            return new FNatsServer(this);
         }
 
     }
