@@ -364,15 +364,27 @@ public class FNatsServer implements FServer {
             Map<Object, Object> ephemeralProperties = new HashMap<>();
             this.eventHandler.onRequestReceived(ephemeralProperties);
             executorService.execute(
-                    new Request(message.getData(), message.getReplyTo(), inputProtoFactory,
-                            outputProtoFactory, processor, conn, eventHandler, ephemeralProperties));
+                    newRequest(message.getData(), message.getReplyTo(), ephemeralProperties));
         };
+    }
+
+    /**
+     * Create a new Request.
+     *
+     * @param frameBytes frame bytes of the request.
+     * @param reply NATS reply subject
+     * @param ephemeralProperties the ephemeralProperties
+     * @return Request
+     */
+    public Request newRequest(byte[] frameBytes, String reply, Map<Object, Object> ephemeralProperties) {
+        return new Request(frameBytes, reply, inputProtoFactory, outputProtoFactory,
+                processor, conn, eventHandler, ephemeralProperties);
     }
 
     /**
      * Runnable which encapsulates a request received by the server.
      */
-    static class Request implements Runnable {
+    public class Request implements Runnable {
 
         final byte[] frameBytes;
         final String reply;
@@ -395,6 +407,33 @@ public class FNatsServer implements FServer {
             this.conn = conn;
             this.eventHandler = eventHandler;
             this.ephemeralProperties = ephemeralProperties;
+        }
+
+        /**
+         * The frame bytes of the request.
+         *
+         * @return the frameBytes
+         */
+        public byte[] getFrameBytes() {
+            return frameBytes;
+        }
+
+        /**
+         * The NATS reply subject for the response.
+         *
+         * @return The reply
+         */
+        public String getReply() {
+            return reply;
+        }
+
+        /**
+         * The ephemeral properties of the request.
+         *
+         * @return the ephemeralProperties
+         */
+        public Map<Object, Object> getEphemeralProperties() {
+            return ephemeralProperties;
         }
 
         @Override
